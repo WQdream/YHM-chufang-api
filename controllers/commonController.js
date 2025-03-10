@@ -3,6 +3,7 @@ const fs = require('fs').promises;
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const qiniu = require('qiniu');
+const sharp = require('sharp');
 
 // 七牛云配置
 const qiniuConfig = {
@@ -10,7 +11,7 @@ const qiniuConfig = {
   secretKey: 'c2D36XatOjh_0RabGdXyqHQH5MnaoC7dhY4j2qFp',
   bucket: 'yhm-yl',
   zone: 'Zone_z0', // 华东区域
-  domain: 'https://y.wqdream.vip' // 七牛云域名
+  domain: 'http://y.wqdream.vip' // 七牛云域名
 };
 
 // 初始化七牛云配置
@@ -84,12 +85,27 @@ exports.upload = async (req, res) => {
     }
 
     const file = req.files.file;
-    const fileExt = path.extname(file.name);
+    const fileExt = path.extname(file.name).toLowerCase();
     const fileName = `${uuidv4()}${fileExt}`;
     const filePath = path.join(TEMP_UPLOAD_PATH, fileName);
 
-    // 保存到临时目录
-    await file.mv(filePath);
+    // 检查是否为图片文件
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    const isImage = imageExtensions.includes(fileExt);
+
+    if (isImage) {
+      // 对图片进行压缩处理
+      await sharp(file.data)
+        .resize(1920, 1080, { // 限制最大尺寸
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .jpeg({ quality: 70 }) // 使用jpeg格式，设置压缩质量
+        .toFile(filePath);
+    } else {
+      // 非图片文件直接保存
+      await file.mv(filePath);
+    }
 
     res.json({
       success: true,
