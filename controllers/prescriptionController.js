@@ -67,7 +67,6 @@ exports.create = async (req, res) => {
     // 处理单个处方的图片
     if (!Array.isArray(data) && data.imageUrl) {
       try {
-        console.log('处理单个处方图片:', data.imageUrl);
         const processedFiles = await processFormFiles([data.imageUrl.split('/').pop()]);
         if (processedFiles && processedFiles.length > 0) {
           data.imageUrl = processedFiles[0].url;

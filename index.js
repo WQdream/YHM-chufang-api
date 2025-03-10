@@ -9,6 +9,8 @@ const prescriptionsRouter = require('./routes/prescriptions');
 const fileUpload = require('express-fileupload');
 const path = require('path');
 const commonRoutes = require('./routes/commonRoutes');
+const acupointsRouter = require('./routes/acupoints');
+const acupuncturesRouter = require('./routes/acupunctures');
 
 const app = express();
 
@@ -32,6 +34,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chinese-medicines', chineseMedicinesRouter);
 app.use('/api/prescriptions', prescriptionsRouter);
 app.use('/api/common', commonRoutes);
+app.use('/api/acupoints', acupointsRouter);
+app.use('/api/acupunctures', acupuncturesRouter);
 
 // 数据库连接测试
 sequelize.authenticate()
@@ -78,4 +82,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   const ip = getLocalIP();
   console.log(`服务器运行在: http://${ip}:${PORT}`);
-}); 
+});
