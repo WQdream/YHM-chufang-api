@@ -42,6 +42,11 @@ const Acupuncture = sequelize.define('Acupuncture', {
     type: DataTypes.STRING,
     allowNull: true,
     comment: '备注'
+  },
+  imageUrls: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: '图片URL数组'
   }
 }, {
   timestamps: true,

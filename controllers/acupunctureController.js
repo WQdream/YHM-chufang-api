@@ -1,5 +1,6 @@
 const Acupuncture = require('../models/Acupuncture');
 const { Op } = require('sequelize');
+const { processFormFiles, deleteFile } = require('./commonController');
 
 // 添加时间格式化辅助函数
 const formatDate = (date) => {
@@ -65,6 +66,20 @@ exports.create = async (req, res) => {
       });
     }
 
+    // 处理图片上传
+    if (acupunctureData.imageUrls && Array.isArray(acupunctureData.imageUrls)) {
+      try {
+        const imageFileNames = acupunctureData.imageUrls.map(url => url.split('/').pop());
+        const processedFiles = await processFormFiles(imageFileNames);
+        if (processedFiles && processedFiles.length > 0) {
+          acupunctureData.imageUrls = processedFiles.map(file => file.url);
+        }
+      } catch (error) {
+        console.error('处理图片失败:', error);
+      }
+    }
+
+    acupunctureData.imageUrls = JSON.stringify(acupunctureData.imageUrls || []);
     const acupuncture = await Acupuncture.create(acupunctureData);
 
     res.status(200).json({
@@ -135,7 +150,6 @@ exports.getAcupunctures = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    
     const { id, ...updateData } = req.body.data;
 
     if (!id) {
@@ -154,6 +168,49 @@ exports.update = async (req, res) => {
         code: 404,
         message: '未找到该施针记录'
       });
+    }
+
+    // 处理图片更新
+    if (updateData.imageUrls) {
+      const oldImageUrls = JSON.parse(acupuncture.imageUrls || '[]');
+      const newImageUrls = Array.isArray(updateData.imageUrls) ? updateData.imageUrls : [];
+
+      // 找出被删除的图片
+      const deletedUrls = oldImageUrls.filter(oldUrl => !newImageUrls.includes(oldUrl));
+
+      // 只删除被移除的图片
+      for (const deletedUrl of deletedUrls) {
+        try {
+          await deleteFile(deletedUrl);
+        } catch (error) {
+          console.error('删除图片失败:', error);
+        }
+      }
+
+      // 处理新上传的图片
+      try {
+        const newImageFileNames = newImageUrls
+          .filter(url => !oldImageUrls.includes(url))
+          .map(url => url.split('/').pop());
+
+        if (newImageFileNames.length > 0) {
+          const processedFiles = await processFormFiles(newImageFileNames);
+          if (processedFiles && processedFiles.length > 0) {
+            // 保留未被删除的旧图片，并添加新处理的图片
+            updateData.imageUrls = [
+              ...oldImageUrls.filter(url => newImageUrls.includes(url)),
+              ...processedFiles.map(file => file.url)
+            ];
+          }
+        } else {
+          // 如果没有新图片，则保留所有未被删除的图片
+          updateData.imageUrls = newImageUrls;
+        }
+      } catch (error) {
+        console.error('处理图片失败:', error);
+      }
+
+      updateData.imageUrls = JSON.stringify(updateData.imageUrls);
     }
 
     await acupuncture.update(updateData);
@@ -199,6 +256,14 @@ exports.delete = async (req, res) => {
         code: 404,
         message: '部分施针记录不存在'
       });
+    }
+
+    // 删除相关的图片文件
+    for (const acupuncture of acupunctures) {
+      const imageUrls = JSON.parse(acupuncture.imageUrls || '[]');
+      for (const imageUrl of imageUrls) {
+        await deleteFile(imageUrl);
+      }
     }
 
     await Acupuncture.destroy({
